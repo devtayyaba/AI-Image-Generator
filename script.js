@@ -96,6 +96,27 @@ const renderImageCard = (imgCard, imgUrl) => {
   `;
 };
 
+const fetchFromHF = async (modelId, userApiKey, promptText, width, height, seed) => {
+  const MODEL_URL = `https://huggingface.co{modelId}`;
+  const response = await fetch(MODEL_URL, {
+    headers: {
+      Authorization: `Bearer ${userApiKey}`,
+      "Content-Type": "application/json",
+    },
+    method: "POST",
+    body: JSON.stringify({
+      inputs: `${promptText}, seed ${seed}`,
+      parameters: { width, height },
+    }),
+  });
+
+  if (!response.ok) {
+    const errData = await response.text();
+    throw new Error(errData || `HTTP ${response.status}`);
+  }
+  return await response.blob();
+};
+
 const generateImages = async (
   selectedModal,
   selectedImageCount,
@@ -112,30 +133,22 @@ const generateImages = async (
 
     if (userApiKey) {
       try {
-        const MODEL_URL = `https://huggingface.co{selectedModal}`;
-        const response = await fetch(MODEL_URL, {
-          headers: {
-            Authorization: `Bearer ${userApiKey}`,
-            "Content-Type": "application/json",
-          },
-          method: "POST",
-          body: JSON.stringify({
-            inputs: `${promptText}, variation ${seed}`,
-            parameters: { width, height },
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error("Invalid API key or model busy");
+        let resultBlob;
+        try {
+          // Try selected model first
+          resultBlob = await fetchFromHF(selectedModal, userApiKey, promptText, width, height, seed);
+        } catch (firstErr) {
+          // Auto-fallback to FLUX.1-schnell (always free & fast on HF)
+          resultBlob = await fetchFromHF("black-forest-labs/FLUX.1-schnell", userApiKey, promptText, width, height, seed);
         }
 
-        const resultBlob = await response.blob();
         renderImageCard(imgCard, URL.createObjectURL(resultBlob));
         return;
       } catch (error) {
+        console.error("HF Error:", error);
         imgCard.classList.replace("loading", "error");
         imgCard.querySelector(".status-text").textContent =
-          "API Key Error or Model Loading! Try again.";
+          "Check HF Token permissions (Inference) or wait 10s!";
         return;
       }
     }
