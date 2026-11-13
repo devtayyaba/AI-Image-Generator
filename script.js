@@ -97,7 +97,7 @@ const renderImageCard = (imgCard, imgUrl) => {
 };
 
 const fetchFromHF = async (modelId, userApiKey, promptText, width, height, seed) => {
-  const MODEL_URL = "https://huggingface.co" + modelId;
+  const MODEL_URL = "https://" + "router.huggingface.co/hf-inference/models/" + modelId;
   const response = await fetch(MODEL_URL, {
     headers: {
       Authorization: "Bearer " + userApiKey,
