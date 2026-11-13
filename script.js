@@ -7,6 +7,7 @@ const modalSelected = document.querySelector("#model-select");
 const countSelected = document.querySelector("#count-select");
 const ratioSelected = document.querySelector("#ratio-select");
 const galleryGrid = document.querySelector(".gallery-grid");
+const apiKeyInput = document.querySelector("#api-key-input");
 
 const examplePrompts = [
   "A futuristic city floating above the clouds with neon bridges",
@@ -29,6 +30,14 @@ const examplePrompts = [
 if (localStorage.getItem("theme") === "dark") {
   document.body.classList.add("dark-theme");
 }
+if (apiKeyInput && localStorage.getItem("hf_user_key")) {
+  apiKeyInput.value = localStorage.getItem("hf_user_key");
+}
+if (apiKeyInput) {
+  apiKeyInput.addEventListener("input", () => {
+    localStorage.setItem("hf_user_key", apiKeyInput.value.trim());
+  });
+}
 
 const getImageDimensions = (aspectRatio, baseSize = 512) => {
   const [width, height] = aspectRatio.split("/").map(Number);
@@ -38,14 +47,12 @@ const getImageDimensions = (aspectRatio, baseSize = 512) => {
   return { width: calculatedWidth, height: calculatedHeight };
 };
 
-// Generates a unique, prompt-inspired high-res AI Canvas artwork locally (Zero API dependency)
-const createProceduralAIArt = (promptText, width, height, seed) => {
+const createFallbackArt = (promptText, width, height, seed) => {
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext("2d");
 
-  // Deterministic pseudo-random helper from prompt + seed
   let hash = seed;
   for (let i = 0; i < promptText.length; i++) {
     hash = (hash * 31 + promptText.charCodeAt(i)) % 1000000;
@@ -55,76 +62,25 @@ const createProceduralAIArt = (promptText, width, height, seed) => {
     return (hash - 1) / 2147483646;
   };
 
-  // Detect mood/colors from prompt keywords
-  const lower = promptText.toLowerCase();
-  let palette = ["#1a1a2e", "#16213e", "#0f3460", "#e94560", "#533483"];
-  if (lower.includes("galaxy") || lower.includes("star") || lower.includes("space")) {
-    palette = ["#090a0f", "#1b2735", "#3a1c71", "#d76d77", "#ffaf7b"];
-  } else if (lower.includes("forest") || lower.includes("village") || lower.includes("tree") || lower.includes("oasis")) {
-    palette = ["#134e5e", "#71b280", "#2c3e50", "#f39c12", "#27ae60"];
-  } else if (lower.includes("neon") || lower.includes("cyberpunk") || lower.includes("futuristic")) {
-    palette = ["#0f0c29", "#302b63", "#24243e", "#00f2fe", "#ff007f"];
-  } else if (lower.includes("snow") || lower.includes("northern") || lower.includes("crystal")) {
-    palette = ["#1c92d2", "#f2fcfe", "#2b5876", "#4e4376", "#00d2ff"];
-  }
-
-  // Rich multi-stop gradient background
   const bgGrad = ctx.createLinearGradient(0, 0, width, height);
-  bgGrad.addColorStop(0, palette[0]);
-  bgGrad.addColorStop(0.5, palette[1]);
-  bgGrad.addColorStop(1, palette[2]);
+  bgGrad.addColorStop(0, "#1a1a2e");
+  bgGrad.addColorStop(0.5, "#302b63");
+  bgGrad.addColorStop(1, "#e94560");
   ctx.fillStyle = bgGrad;
   ctx.fillRect(0, 0, width, height);
 
-  // Glowing nebula / light orbs
-  for (let i = 0; i < 12; i++) {
-    const x = rand() * width;
-    const y = rand() * height;
-    const r = (0.15 + rand() * 0.35) * Math.min(width, height);
-    const orbGrad = ctx.createRadialGradient(x, y, 0, x, y, r);
-    orbGrad.addColorStop(0, palette[3 + (i % 2)] + "88");
-    orbGrad.addColorStop(1, "transparent");
-    ctx.fillStyle = orbGrad;
-    ctx.fillRect(0, 0, width, height);
-  }
-
-  // Flowing waves / landscape silhouettes
-  for (let layer = 0; layer < 4; layer++) {
+  for (let s = 0; s < 50; s++) {
     ctx.beginPath();
-    ctx.moveTo(0, height);
-    const baseH = height * (0.45 + layer * 0.14);
-    for (let x = 0; x <= width; x += 20) {
-      const y =
-        baseH +
-        Math.sin(x * 0.01 + layer + rand() * 0.5) * 28 +
-        Math.cos(x * 0.02 - layer) * 15;
-      ctx.lineTo(x, y);
-    }
-    ctx.lineTo(width, height);
-    ctx.closePath();
-    ctx.fillStyle = palette[layer % palette.length] + "aa";
+    ctx.arc(rand() * width, rand() * height, 1 + rand() * 2, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(255,255,255,0.7)";
     ctx.fill();
   }
 
-  // Floating stars / particles
-  for (let s = 0; s < 65; s++) {
-    const sx = rand() * width;
-    const sy = rand() * height * 0.75;
-    const sr = 0.8 + rand() * 2.2;
-    ctx.beginPath();
-    ctx.arc(sx, sy, sr, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(255, 255, 255, ${0.4 + rand() * 0.6})`;
-    ctx.fill();
-  }
-
-  // Subtle prompt caption badge at bottom
-  ctx.fillStyle = "rgba(0, 0, 0, 0.45)";
-  ctx.fillRect(0, height - 34, width, 34);
-  ctx.fillStyle = "#ffffff";
+  ctx.fillStyle = "rgba(0,0,0,0.55)";
+  ctx.fillRect(0, height - 36, width, 36);
+  ctx.fillStyle = "#fff";
   ctx.font = "12px sans-serif";
-  const label = promptText.length > 48 ? promptText.slice(0, 45) + "..." : promptText;
-  ctx.fillText(`AI Render: ${label}`, 12, height - 13);
-
+  ctx.fillText("Demo Preview (Paste HF Token above for Real AI)", 10, height - 14);
   return canvas.toDataURL("image/png");
 };
 
@@ -133,7 +89,7 @@ const renderImageCard = (imgCard, imgUrl) => {
   imgCard.innerHTML = `
     <img src="${imgUrl}" alt="AI Generated Image" class="result-img" />
     <div class="img-overlay">
-      <a href="${imgUrl}" class="img-download-btn" download="ai-generated-${Date.now()}.png">
+      <a href="${imgUrl}" class="img-download-btn" download="ai-image-${Date.now()}.png">
         <i class="fa-solid fa-download"></i>
       </a>
     </div>
@@ -147,23 +103,49 @@ const generateImages = async (
   promptText
 ) => {
   const { width, height } = getImageDimensions(selectedRatio);
+  const userApiKey = apiKeyInput ? apiKeyInput.value.trim() : "";
   generateBtn.setAttribute("disabled", "true");
 
-  // Simulate realistic AI processing delay
-  await new Promise((resolve) => setTimeout(resolve, 900));
-
-  for (let i = 0; i < selectedImageCount; i++) {
+  const tasks = Array.from({ length: selectedImageCount }, async (_, i) => {
     const imgCard = document.getElementById(`img-card-${i}`);
-    const seed = Math.floor(Math.random() * 100000) + i * 77;
-    const generatedDataUrl = createProceduralAIArt(
-      promptText,
-      width,
-      height,
-      seed
-    );
-    renderImageCard(imgCard, generatedDataUrl);
-  }
+    const seed = Math.floor(Math.random() * 100000) + i * 33;
 
+    if (userApiKey) {
+      try {
+        const MODEL_URL = `https://huggingface.co{selectedModal}`;
+        const response = await fetch(MODEL_URL, {
+          headers: {
+            Authorization: `Bearer ${userApiKey}`,
+            "Content-Type": "application/json",
+          },
+          method: "POST",
+          body: JSON.stringify({
+            inputs: `${promptText}, variation ${seed}`,
+            parameters: { width, height },
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error("Invalid API key or model busy");
+        }
+
+        const resultBlob = await response.blob();
+        renderImageCard(imgCard, URL.createObjectURL(resultBlob));
+        return;
+      } catch (error) {
+        imgCard.classList.replace("loading", "error");
+        imgCard.querySelector(".status-text").textContent =
+          "API Key Error or Model Loading! Try again.";
+        return;
+      }
+    }
+
+    await new Promise((r) => setTimeout(r, 600));
+    const fallbackUrl = createFallbackArt(promptText, width, height, seed);
+    renderImageCard(imgCard, fallbackUrl);
+  });
+
+  await Promise.allSettled(tasks);
   generateBtn.removeAttribute("disabled");
 };
 
