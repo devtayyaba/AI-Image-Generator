@@ -97,10 +97,10 @@ const renderImageCard = (imgCard, imgUrl) => {
 };
 
 const fetchFromHF = async (modelId, userApiKey, promptText, width, height, seed) => {
-  const MODEL_URL = `https://huggingface.co{modelId}`;
+  const MODEL_URL = "https://huggingface.co" + modelId;
   const response = await fetch(MODEL_URL, {
     headers: {
-      Authorization: `Bearer ${userApiKey}`,
+      Authorization: "Bearer " + userApiKey,
       "Content-Type": "application/json",
     },
     method: "POST",
@@ -135,10 +135,8 @@ const generateImages = async (
       try {
         let resultBlob;
         try {
-          // Try selected model first
           resultBlob = await fetchFromHF(selectedModal, userApiKey, promptText, width, height, seed);
         } catch (firstErr) {
-          // Auto-fallback to FLUX.1-schnell (always free & fast on HF)
           resultBlob = await fetchFromHF("black-forest-labs/FLUX.1-schnell", userApiKey, promptText, width, height, seed);
         }
 
